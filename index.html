@@ -5,13 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מחולל קישורים למשחק</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 500px; margin: 50px auto; padding: 20px; text-align: center; border: 1px solid #ccc; border-radius: 10px; }
-        input { padding: 10px; width: 200px; text-align: center; font-size: 1.2em; }
-        button { padding: 10px 20px; font-size: 1.2em; margin-top: 15px; cursor: pointer; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 25px; text-align: center; border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        h1 { color: #1a1a1a; }
+        input { padding: 12px; width: 220px; text-align: center; font-size: 1.5em; border: 1px solid #ccc; border-radius: 8px; }
+        button { padding: 12px 24px; font-size: 1.2em; margin-top: 20px; cursor: pointer; border-radius: 8px; border: none; background-color: #007bff; color: white; transition: background-color 0.2s; }
+        button:hover { background-color: #0056b3; }
         #links-container { margin-top: 30px; text-align: right; display: none; }
-        .link-box { border: 1px solid #007bff; padding: 15px; margin-top: 10px; border-radius: 5px; }
-        .link-box h3 { margin-top: 0; }
-        .link-box a { word-wrap: break-word; }
+        .link-box { border: 1px solid #007bff; padding: 15px; margin-top: 15px; border-radius: 8px; background-color: #f7f9fc; }
+        .link-box h3 { margin-top: 0; color: #0056b3; }
+        .link-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .link-row a { word-wrap: break-word; text-align: left; flex-grow: 1; }
+        .copy-btn { padding: 8px 12px; font-size: 0.9em; background-color: #6c757d; border-radius: 5px; }
     </style>
 </head>
 <body>
@@ -24,13 +28,17 @@
         <h2>הקישורים מוכנים!</h2>
         <div class="link-box">
             <h3>קישור 1: לשימושך בלבד (חדר הבקרה)</h3>
-            <p>פתח את הקישור הזה כדי להתחיל לשדר:</p>
-            <a id="hostLink" href="#" target="_blank"></a>
+            <div class="link-row">
+                <a id="hostLink" href="#" target="_blank" rel="noopener noreferrer"></a>
+                <button class="copy-btn" data-link-id="hostLink">העתק</button>
+            </div>
         </div>
         <div class="link-box">
             <h3>קישור 2: שלח לשחקנים</h3>
-            <p>העתק ושלח את הקישור הזה לכל המשתתפים:</p>
-            <a id="playerLink" href="#"></a>
+            <div class="link-row">
+                <a id="playerLink" href="#" target="_blank" rel="noopener noreferrer"></a>
+                <button class="copy-btn" data-link-id="playerLink">העתק</button>
+            </div>
         </div>
     </div>
 
@@ -42,20 +50,33 @@
                 return;
             }
 
-            // יצירת מזהה ערוץ אקראי כדי שכל משחק יהיה ייחודי
             const channelName = Math.random().toString(36).substring(2, 15);
             
-            // יצירת קישורים יחסיים, שעובדים תמיד
-            const hostUrl = `host.html?channel=${channelName}`;
-            const playerUrl = `player.html?channel=${channelName}&gamecode=${gameCode}`;
+            // יצירת הכתובת המלאה והמוחלטת של הקישורים
+            const hostUrl = new URL(`host.html?channel=${channelName}`, window.location.href).href;
+            const playerUrl = new URL(`player.html?channel=${channelName}&gamecode=${gameCode}`, window.location.href).href;
 
-            // הצגת הקישורים למשתמש
             document.getElementById('hostLink').href = hostUrl;
-            document.getElementById('hostLink').textContent = hostUrl; // מציג רק את הקישור היחסי, אבל הוא יעבוד
+            document.getElementById('hostLink').textContent = hostUrl;
             document.getElementById('playerLink').href = playerUrl;
             document.getElementById('playerLink').textContent = playerUrl;
             
             document.getElementById('links-container').style.display = 'block';
+        });
+
+        // הוספת פונקציונליות לכפתורי ההעתקה
+        document.querySelectorAll('.copy-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const linkId = this.getAttribute('data-link-id');
+                const linkToCopy = document.getElementById(linkId).href;
+                
+                navigator.clipboard.writeText(linkToCopy).then(() => {
+                    this.textContent = 'הועתק!';
+                    setTimeout(() => { this.textContent = 'העתק'; }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy: ', err);
+                });
+            });
         });
     </script>
 </body>
