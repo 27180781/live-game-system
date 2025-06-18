@@ -1,99 +1,161 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>Host Control Room</title>
+    <title>חדר בקרה למנחה</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #2c3e50; color: white; font-family: sans-serif; }
-        #broadcast-container { position: relative; width: 100%; height: 100%; }
-        #screen-share-container { width: 100%; height: 100%; background-color: #000; }
-        #local-camera-container {
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #222; color: white; font-family: sans-serif; overflow: hidden; }
+        #main-view { position: relative; width: 100%; height: calc(100% - 80px); /* גובה מלא פחות גובה שורת הכפתורים */ }
+        #screen-container { width: 100%; height: 100%; background-color: #000; display: flex; align-items: center; justify-content: center; }
+        #screen-container p { font-size: 1.5em; color: #555; }
+        #camera-container {
             position: absolute;
-            bottom: 20px;
-            right: 20px;
-            width: 15%; /* גודל המצלמה ביחס למסך */
-            height: auto;
-            border: 3px solid #3498db;
+            bottom: 10px;
+            right: 10px;
+            width: 20%;
+            min-width: 150px;
+            border: 2px solid #00aaff;
             border-radius: 8px;
             overflow: hidden;
+            background-color: #111;
+            display: none; /* מוסתר בהתחלה */
         }
-        #controls { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10; }
-        #toggle-broadcast-btn { padding: 15px 30px; font-size: 1.2em; cursor: pointer; border-radius: 8px; border: none; }
-        .start { background-color: #2ecc71; }
-        .stop { background-color: #e74c3c; }
+        #controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 80px;
+            background-color: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+        }
+        #controls button {
+            background-color: #333;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 24px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        #controls button:hover { background-color: #444; }
+        #controls button.active { background-color: #007acc; border-color: #00aaff; }
+        #controls button.leave { background-color: #e74c3c; }
     </style>
 </head>
 <body>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
 
-    <div id="controls">
-        <button id="toggle-broadcast-btn" class="start">התחל שידור</button>
+    <div id="main-view">
+        <div id="screen-container"><p>שיתוף המסך יופיע כאן</p></div>
+        <div id="camera-container"></div>
     </div>
 
-    <div id="broadcast-container">
-        <div id="screen-share-container"></div>
-        <div id="local-camera-container"></div>
+    <div id="controls">
+        <button id="mic-btn" title="הפעל/השתק שמע">🎤</button>
+        <button id="cam-btn" title="הפעל/כבה מצלמה">📷</button>
+        <button id="screen-btn" title="שתף/הפסק שיתוף מסך">🖥️</button>
+        <button id="leave-btn" class="leave" title="סיים שידור">📞</button>
     </div>
 
     <script>
-        const APP_ID = "5c3ec68539331ff3c656"; // !!! החלף במזהה האפליקציה שלך מ-Agora
-        
+        const APP_ID = "5c3ec68539331ff3c656"; // !!! החלף במזהה האפליקציה שלך
+
         const client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
         client.setClientRole("host");
 
-        let localTracks = {
-            videoTrack: null,
-            audioTrack: null,
-            screenTrack: null
-        };
-        
-        let isBroadcasting = false;
-        const toggleBtn = document.getElementById('toggle-broadcast-btn');
-
-        // קבלת שם הערוץ מכתובת ה-URL
+        const localTracks = { videoTrack: null, audioTrack: null, screenTrack: null };
         const urlParams = new URLSearchParams(window.location.search);
         const channelName = urlParams.get('channel');
 
-        async function joinChannel() {
-            await client.join(APP_ID, channelName, null, null);
+        // --- פונקציות ניהול ---
+        async function join() {
+            try {
+                await client.join(APP_ID, channelName, null, null);
+            } catch (error) {
+                console.error("Failed to join channel", error);
+            }
         }
-        joinChannel();
 
-        toggleBtn.onclick = async function () {
-            if (!isBroadcasting) {
-                // התחלת שידור
-                [localTracks.audioTrack, localTracks.videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
-                localTracks.screenTrack = await AgoraRTC.createScreenVideoTrack({
-                    encoderConfig: "1080p_1", // ניתן לבחור איכות
-                }, "auto");
-
-                // הצגת הוידאו המקומי
-                localTracks.videoTrack.play('local-camera-container');
-                localTracks.screenTrack.play('screen-share-container');
-
-                // פרסום כל הערוצים לשידור
-                await client.publish(Object.values(localTracks));
-                
-                toggleBtn.textContent = 'הפסק שידור';
-                toggleBtn.className = 'stop';
-                isBroadcasting = true;
-
-            } else {
-                // הפסקת שידור
-                for (let trackName in localTracks) {
-                    let track = localTracks[trackName];
-                    if(track) {
-                        track.stop();
-                        track.close();
-                        localTracks[trackName] = null;
-                    }
+        async function leave() {
+            for (let trackName in localTracks) {
+                const track = localTracks[trackName];
+                if (track) {
+                    track.stop();
+                    track.close();
+                    localTracks[trackName] = null;
                 }
-                await client.unpublish();
-                toggleBtn.textContent = 'התחל שידור';
-                toggleBtn.className = 'start';
-                isBroadcasting = false;
+            }
+            await client.leave();
+            window.location.reload(); // טוען מחדש את הדף למצב התחלתי
+        }
+
+        // --- ניהול כפתורים ---
+        document.getElementById('mic-btn').onclick = async () => {
+            if (localTracks.audioTrack) {
+                const isEnabled = localTracks.audioTrack.isEnabled;
+                await localTracks.audioTrack.setEnabled(!isEnabled);
+                document.getElementById('mic-btn').style.opacity = isEnabled ? 0.5 : 1;
+            } else {
+                localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+                await client.publish(localTracks.audioTrack);
+                document.getElementById('mic-btn').classList.add('active');
             }
         };
+
+        document.getElementById('cam-btn').onclick = async () => {
+            const camContainer = document.getElementById('camera-container');
+            if (localTracks.videoTrack) {
+                await client.unpublish(localTracks.videoTrack);
+                localTracks.videoTrack.stop();
+                localTracks.videoTrack.close();
+                localTracks.videoTrack = null;
+                camContainer.style.display = 'none';
+                document.getElementById('cam-btn').classList.remove('active');
+            } else {
+                localTracks.videoTrack = await AgoraRTC.createCameraVideoTrack();
+                camContainer.style.display = 'block';
+                localTracks.videoTrack.play('camera-container');
+                await client.publish(localTracks.videoTrack);
+                document.getElementById('cam-btn').classList.add('active');
+            }
+        };
+        
+        document.getElementById('screen-btn').onclick = async () => {
+            if (localTracks.screenTrack) {
+                await client.unpublish(localTracks.screenTrack);
+                localTracks.screenTrack.stop();
+                localTracks.screenTrack.close();
+                localTracks.screenTrack = null;
+                document.getElementById('screen-container').innerHTML = '<p>שיתוף המסך יופיע כאן</p>';
+                document.getElementById('screen-btn').classList.remove('active');
+            } else {
+                try {
+                    localTracks.screenTrack = await AgoraRTC.createScreenVideoTrack({ encoderConfig: "1080p_1" }, "auto");
+                    document.getElementById('screen-container').innerHTML = ''; // מנקה את הטקסט
+                    localTracks.screenTrack.play('screen-container');
+                    await client.publish(localTracks.screenTrack);
+                    document.getElementById('screen-btn').classList.add('active');
+                    // מאזין למקרה שהמשתמש ילחץ על כפתור "הפסק שיתוף" המובנה של הדפדפן
+                    localTracks.screenTrack.on("track-ended", () => {
+                        document.getElementById('screen-btn').click(); // מפעיל את הלוגיקה של כיבוי הכפתור
+                    });
+                } catch (error) {
+                    console.error("Screen share failed or cancelled", error);
+                }
+            }
+        };
+
+        document.getElementById('leave-btn').onclick = leave;
+
+        // התחברות אוטומטית לערוץ כשהדף נטען
+        join();
+
     </script>
 </body>
 </html>
