@@ -44,16 +44,14 @@
 
             // יצירת מזהה ערוץ אקראי כדי שכל משחק יהיה ייחודי
             const channelName = Math.random().toString(36).substring(2, 15);
-
-            const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
             
-            // יצירת הקישורים
-            const hostUrl = `${baseUrl}/host.html?channel=${channelName}`;
-            const playerUrl = `${baseUrl}/player.html?channel=${channelName}&gamecode=${gameCode}`;
+            // יצירת קישורים יחסיים, שעובדים תמיד
+            const hostUrl = `host.html?channel=${channelName}`;
+            const playerUrl = `player.html?channel=${channelName}&gamecode=${gameCode}`;
 
             // הצגת הקישורים למשתמש
             document.getElementById('hostLink').href = hostUrl;
-            document.getElementById('hostLink').textContent = hostUrl;
+            document.getElementById('hostLink').textContent = hostUrl; // מציג רק את הקישור היחסי, אבל הוא יעבוד
             document.getElementById('playerLink').href = playerUrl;
             document.getElementById('playerLink').textContent = playerUrl;
             
