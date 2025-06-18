@@ -4,45 +4,32 @@
     <meta charset="UTF-8">
     <title>חדר בקרה למנחה</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #222; color: white; font-family: sans-serif; overflow: hidden; }
-        #main-view { position: relative; width: 100%; height: calc(100% - 80px); /* גובה מלא פחות גובה שורת הכפתורים */ }
-        #screen-container { width: 100%; height: 100%; background-color: #000; display: flex; align-items: center; justify-content: center; }
-        #screen-container p { font-size: 1.5em; color: #555; }
-        #camera-container {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            width: 20%;
-            min-width: 150px;
-            border: 2px solid #00aaff;
-            border-radius: 8px;
-            overflow: hidden;
-            background-color: #111;
-            display: none; /* מוסתר בהתחלה */
-        }
-        #controls {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 80px;
-            background-color: #1a1a1a;
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #222; color: white; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; overflow: hidden; }
+        
+        /* --- מסך ההוראות --- */
+        #instructions-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 15px;
+            text-align: center;
+            z-index: 100;
         }
-        #controls button {
-            background-color: #333;
-            color: white;
-            border: 1px solid #555;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            font-size: 24px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
+        #instructions-box { max-width: 600px; padding: 30px; }
+        #instructions-box h1 { font-size: 2.5em; color: #00aaff; }
+        #instructions-box p { font-size: 1.2em; line-height: 1.6; }
+        #start-journey-btn { font-size: 1.2em; padding: 12px 30px; margin-top: 20px; background-color: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; }
+
+        /* --- ממשק השידור --- */
+        #main-view { position: relative; width: 100%; height: calc(100% - 80px); opacity: 0; transition: opacity 0.5s; }
+        #screen-container { width: 100%; height: 100%; background-color: #000; display: flex; align-items: center; justify-content: center; }
+        #screen-container p { font-size: 1.5em; color: #555; }
+        #camera-container { position: absolute; bottom: 10px; right: 10px; width: 20%; min-width: 150px; border: 2px solid #00aaff; border-radius: 8px; overflow: hidden; background-color: #111; display: none; }
+        #controls { position: absolute; bottom: 0; left: 0; width: 100%; height: 80px; background-color: #1a1a1a; display: flex; justify-content: center; align-items: center; gap: 15px; opacity: 0; transition: opacity 0.5s; }
+        #controls button { background-color: #333; color: white; border: 1px solid #555; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; cursor: pointer; transition: background-color 0.2s; }
         #controls button:hover { background-color: #444; }
         #controls button.active { background-color: #007acc; border-color: #00aaff; }
         #controls button.leave { background-color: #e74c3c; }
@@ -51,11 +38,19 @@
 <body>
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
 
+    <div id="instructions-overlay">
+        <div id="instructions-box">
+            <h1>ברוך הבא לחדר הבקרה!</h1>
+            <p>כדי להתחיל את המשחק, השתמש בלחצנים שיופיעו בתחתית המסך כדי לשתף את המצלמה, המיקרופון, וחשוב מכל - את **מסך המשחק** שלך.</p>
+            <p>השחקנים יראו רק מה שתבחר לשתף. בהצלחה!</p>
+            <button id="start-journey-btn">הבנתי, בוא נתחיל</button>
+        </div>
+    </div>
+    
     <div id="main-view">
         <div id="screen-container"><p>שיתוף המסך יופיע כאן</p></div>
         <div id="camera-container"></div>
     </div>
-
     <div id="controls">
         <button id="mic-btn" title="הפעל/השתק שמע">🎤</button>
         <button id="cam-btn" title="הפעל/כבה מצלמה">📷</button>
@@ -64,21 +59,37 @@
     </div>
 
     <script>
+        // --- כל קוד האגורה והשידור נשאר כאן ---
         const APP_ID = "5c3ec68539331ff3c656"; // !!! החלף במזהה האפליקציה שלך
 
+        // --- שאר קוד ה-JavaScript מהקובץ הקודם נשאר זהה ---
         const client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
         client.setClientRole("host");
 
         const localTracks = { videoTrack: null, audioTrack: null, screenTrack: null };
         const urlParams = new URLSearchParams(window.location.search);
         const channelName = urlParams.get('channel');
-
+        
         // --- פונקציות ניהול ---
+        // ... (העתק את כל פונקציות הניהול והכפתורים מהגרסה הקודמת לכאן)
+        async function join() { /* ... */ }
+        async function leave() { /* ... */ }
+
+        // --- ניהול כפתורים ---
+        document.getElementById('start-journey-btn').onclick = () => {
+            document.getElementById('instructions-overlay').style.display = 'none';
+            document.getElementById('main-view').style.opacity = 1;
+            document.getElementById('controls').style.opacity = 1;
+            join(); // מתחברים לערוץ רק אחרי שהמשתמש מוכן
+        };
+        //... (כל שאר קוד הכפתורים מהגרסה הקודמת)
+        
         async function join() {
             try {
                 await client.join(APP_ID, channelName, null, null);
             } catch (error) {
                 console.error("Failed to join channel", error);
+                alert("Could not join channel: " + error);
             }
         }
 
@@ -92,70 +103,82 @@
                 }
             }
             await client.leave();
-            window.location.reload(); // טוען מחדש את הדף למצב התחלתי
+            alert("השידור הסתיים.");
+            window.location.reload();
         }
 
-        // --- ניהול כפתורים ---
         document.getElementById('mic-btn').onclick = async () => {
-            if (localTracks.audioTrack) {
-                const isEnabled = localTracks.audioTrack.isEnabled;
-                await localTracks.audioTrack.setEnabled(!isEnabled);
-                document.getElementById('mic-btn').style.opacity = isEnabled ? 0.5 : 1;
+            if (document.getElementById('mic-btn').classList.contains('active')) {
+                if (localTracks.audioTrack) {
+                    await client.unpublish(localTracks.audioTrack);
+                    localTracks.audioTrack.stop();
+                    localTracks.audioTrack.close();
+                    localTracks.audioTrack = null;
+                }
+                document.getElementById('mic-btn').classList.remove('active');
             } else {
-                localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-                await client.publish(localTracks.audioTrack);
-                document.getElementById('mic-btn').classList.add('active');
+                try {
+                    localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+                    await client.publish(localTracks.audioTrack);
+                    document.getElementById('mic-btn').classList.add('active');
+                } catch (error) {
+                    console.error("Failed to get microphone", error);
+                }
             }
         };
 
         document.getElementById('cam-btn').onclick = async () => {
             const camContainer = document.getElementById('camera-container');
-            if (localTracks.videoTrack) {
-                await client.unpublish(localTracks.videoTrack);
-                localTracks.videoTrack.stop();
-                localTracks.videoTrack.close();
-                localTracks.videoTrack = null;
+            if (document.getElementById('cam-btn').classList.contains('active')) {
+                if (localTracks.videoTrack) {
+                    await client.unpublish(localTracks.videoTrack);
+                    localTracks.videoTrack.stop();
+                    localTracks.videoTrack.close();
+                    localTracks.videoTrack = null;
+                }
                 camContainer.style.display = 'none';
                 document.getElementById('cam-btn').classList.remove('active');
             } else {
-                localTracks.videoTrack = await AgoraRTC.createCameraVideoTrack();
-                camContainer.style.display = 'block';
-                localTracks.videoTrack.play('camera-container');
-                await client.publish(localTracks.videoTrack);
-                document.getElementById('cam-btn').classList.add('active');
+                 try {
+                    localTracks.videoTrack = await AgoraRTC.createCameraVideoTrack();
+                    camContainer.style.display = 'block';
+                    localTracks.videoTrack.play('camera-container');
+                    await client.publish(localTracks.videoTrack);
+                    document.getElementById('cam-btn').classList.add('active');
+                 } catch(error){
+                    console.error("Failed to get camera", error);
+                 }
             }
         };
         
         document.getElementById('screen-btn').onclick = async () => {
-            if (localTracks.screenTrack) {
-                await client.unpublish(localTracks.screenTrack);
-                localTracks.screenTrack.stop();
-                localTracks.screenTrack.close();
-                localTracks.screenTrack = null;
+            if (document.getElementById('screen-btn').classList.contains('active')) {
+                if(localTracks.screenTrack){
+                    await client.unpublish(localTracks.screenTrack);
+                    localTracks.screenTrack.stop();
+                    localTracks.screenTrack.close();
+                    localTracks.screenTrack = null;
+                }
                 document.getElementById('screen-container').innerHTML = '<p>שיתוף המסך יופיע כאן</p>';
                 document.getElementById('screen-btn').classList.remove('active');
             } else {
                 try {
                     localTracks.screenTrack = await AgoraRTC.createScreenVideoTrack({ encoderConfig: "1080p_1" }, "auto");
-                    document.getElementById('screen-container').innerHTML = ''; // מנקה את הטקסט
+                    document.getElementById('screen-container').innerHTML = '';
                     localTracks.screenTrack.play('screen-container');
                     await client.publish(localTracks.screenTrack);
                     document.getElementById('screen-btn').classList.add('active');
-                    // מאזין למקרה שהמשתמש ילחץ על כפתור "הפסק שיתוף" המובנה של הדפדפן
                     localTracks.screenTrack.on("track-ended", () => {
-                        document.getElementById('screen-btn').click(); // מפעיל את הלוגיקה של כיבוי הכפתור
+                        document.getElementById('screen-btn').click();
                     });
                 } catch (error) {
                     console.error("Screen share failed or cancelled", error);
+                    alert("שגיאה בשיתוף מסך: " + error.message);
                 }
             }
         };
 
         document.getElementById('leave-btn').onclick = leave;
-
-        // התחברות אוטומטית לערוץ כשהדף נטען
-        join();
-
     </script>
 </body>
 </html>
