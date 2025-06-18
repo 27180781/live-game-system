@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מחולל קישורים למשחק</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 500px; margin: 50px auto; padding: 20px; text-align: center; border: 1px solid #ccc; border-radius: 10px; }
+        input { padding: 10px; width: 200px; text-align: center; font-size: 1.2em; }
+        button { padding: 10px 20px; font-size: 1.2em; margin-top: 15px; cursor: pointer; }
+        #links-container { margin-top: 30px; text-align: right; display: none; }
+        .link-box { border: 1px solid #007bff; padding: 15px; margin-top: 10px; border-radius: 5px; }
+        .link-box h3 { margin-top: 0; }
+        .link-box a { word-wrap: break-word; }
+    </style>
+</head>
+<body>
+    <h1>יצירת משחק חדש</h1>
+    <label for="gameCode">הכנס את קוד המשחק בן 4 הספרות:</label><br><br>
+    <input type="text" id="gameCode" maxlength="4" placeholder="1234"><br>
+    <button id="generateBtn">צור קישורים</button>
+
+    <div id="links-container">
+        <h2>הקישורים מוכנים!</h2>
+        <div class="link-box">
+            <h3>קישור 1: לשימושך בלבד (חדר הבקרה)</h3>
+            <p>פתח את הקישור הזה כדי להתחיל לשדר:</p>
+            <a id="hostLink" href="#" target="_blank"></a>
+        </div>
+        <div class="link-box">
+            <h3>קישור 2: שלח לשחקנים</h3>
+            <p>העתק ושלח את הקישור הזה לכל המשתתפים:</p>
+            <a id="playerLink" href="#"></a>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('generateBtn').addEventListener('click', function() {
+            const gameCode = document.getElementById('gameCode').value;
+            if (gameCode.length < 4) {
+                alert('יש להזין קוד משחק בן 4 ספרות.');
+                return;
+            }
+
+            // יצירת מזהה ערוץ אקראי כדי שכל משחק יהיה ייחודי
+            const channelName = Math.random().toString(36).substring(2, 15);
+
+            const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/'));
+            
+            // יצירת הקישורים
+            const hostUrl = `${baseUrl}/host.html?channel=${channelName}`;
+            const playerUrl = `${baseUrl}/player.html?channel=${channelName}&gamecode=${gameCode}`;
+
+            // הצגת הקישורים למשתמש
+            document.getElementById('hostLink').href = hostUrl;
+            document.getElementById('hostLink').textContent = hostUrl;
+            document.getElementById('playerLink').href = playerUrl;
+            document.getElementById('playerLink').textContent = playerUrl;
+            
+            document.getElementById('links-container').style.display = 'block';
+        });
+    </script>
+</body>
+</html>

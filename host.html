@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Host Control Room</title>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #2c3e50; color: white; font-family: sans-serif; }
+        #broadcast-container { position: relative; width: 100%; height: 100%; }
+        #screen-share-container { width: 100%; height: 100%; background-color: #000; }
+        #local-camera-container {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 15%; /* גודל המצלמה ביחס למסך */
+            height: auto;
+            border: 3px solid #3498db;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        #controls { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10; }
+        #toggle-broadcast-btn { padding: 15px 30px; font-size: 1.2em; cursor: pointer; border-radius: 8px; border: none; }
+        .start { background-color: #2ecc71; }
+        .stop { background-color: #e74c3c; }
+    </style>
+</head>
+<body>
+    <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
+
+    <div id="controls">
+        <button id="toggle-broadcast-btn" class="start">התחל שידור</button>
+    </div>
+
+    <div id="broadcast-container">
+        <div id="screen-share-container"></div>
+        <div id="local-camera-container"></div>
+    </div>
+
+    <script>
+        const APP_ID = "5c3ec68539331ff3c656"; // !!! החלף במזהה האפליקציה שלך מ-Agora
+        
+        const client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
+        client.setClientRole("host");
+
+        let localTracks = {
+            videoTrack: null,
+            audioTrack: null,
+            screenTrack: null
+        };
+        
+        let isBroadcasting = false;
+        const toggleBtn = document.getElementById('toggle-broadcast-btn');
+
+        // קבלת שם הערוץ מכתובת ה-URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const channelName = urlParams.get('channel');
+
+        async function joinChannel() {
+            await client.join(APP_ID, channelName, null, null);
+        }
+        joinChannel();
+
+        toggleBtn.onclick = async function () {
+            if (!isBroadcasting) {
+                // התחלת שידור
+                [localTracks.audioTrack, localTracks.videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+                localTracks.screenTrack = await AgoraRTC.createScreenVideoTrack({
+                    encoderConfig: "1080p_1", // ניתן לבחור איכות
+                }, "auto");
+
+                // הצגת הוידאו המקומי
+                localTracks.videoTrack.play('local-camera-container');
+                localTracks.screenTrack.play('screen-share-container');
+
+                // פרסום כל הערוצים לשידור
+                await client.publish(Object.values(localTracks));
+                
+                toggleBtn.textContent = 'הפסק שידור';
+                toggleBtn.className = 'stop';
+                isBroadcasting = true;
+
+            } else {
+                // הפסקת שידור
+                for (let trackName in localTracks) {
+                    let track = localTracks[trackName];
+                    if(track) {
+                        track.stop();
+                        track.close();
+                        localTracks[trackName] = null;
+                    }
+                }
+                await client.unpublish();
+                toggleBtn.textContent = 'התחל שידור';
+                toggleBtn.className = 'start';
+                isBroadcasting = false;
+            }
+        };
+    </script>
+</body>
+</html>
