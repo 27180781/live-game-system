@@ -4,10 +4,20 @@
     <meta charset="UTF-8">
     <title>Player View</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: sans-serif; }
         #main-container { display: flex; width: 100%; height: 100%; }
-        #broadcast-view { flex: 3; /* תופס 3/4 מהרוחב */ background: #000; }
-        #controller-view { flex: 1; /* תופס 1/4 מהרוחב */ }
+        #broadcast-section { flex: 3; background: #000; position: relative; }
+        #screen-view { width: 100%; height: 100%; }
+        #camera-view {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 20%;
+            border: 2px solid #fff;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        #controller-section { flex: 1; }
         iframe { width: 100%; height: 100%; border: none; }
     </style>
 </head>
@@ -15,43 +25,56 @@
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
 
     <div id="main-container">
-        <div id="broadcast-view"></div>
-        <div id="controller-view">
+        <div id="broadcast-section">
+            <div id="screen-view"></div>
+            <div id="camera-view"></div>
+        </div>
+        <div id="controller-section">
             <iframe id="controller-frame"></iframe>
         </div>
     </div>
 
     <script>
-        const APP_ID = "5c3ec68539331ff3c656"; // !!! החלף במזהה האפליקציה שלך מ-Agora
+        const APP_ID = "5c3ec68539331ff3c656"; // !!! החלף במזהה האפליקציה שלך
 
-        // קבלת הפרמטרים מכתובת ה-URL
         const urlParams = new URLSearchParams(window.location.search);
         const channelName = urlParams.get('channel');
         const gameCode = urlParams.get('gamecode');
 
-        // בניית כתובת השלט והצבתה ב-iframe
         const controllerUrl = `https://game.clicker.co.il/phone.html?code=${gameCode}`;
         document.getElementById('controller-frame').src = controllerUrl;
 
         const client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
         client.setClientRole("audience");
 
-        async function joinAndSubscribe() {
-            await client.join(APP_ID, channelName, null, null);
-
-            client.on("user-published", async (user, mediaType) => {
-                await client.subscribe(user, mediaType);
-                if (mediaType === "video") {
-                    // השידור הראשי הוא של שיתוף המסך, אז נציג אותו
-                    if (user.videoTrack.getMediaStreamTrack().getSettings().displaySurface) {
-                        user.videoTrack.play('broadcast-view');
-                    }
+        async function subscribeToUser(user, mediaType) {
+            await client.subscribe(user, mediaType);
+            if (mediaType === "video") {
+                // בודק אם הוידאו הוא שיתוף מסך
+                const isScreenTrack = user.videoTrack.getMediaStreamTrack().getSettings().displaySurface;
+                if (isScreenTrack) {
+                    user.videoTrack.play('screen-view');
+                } else {
+                    user.videoTrack.play('camera-view');
                 }
-                if (mediaType === "audio") {
-                    user.audioTrack.play();
-                }
-            });
+            }
+            if (mediaType === "audio") {
+                user.audioTrack.play();
+            }
         }
+
+        async function joinAndSubscribe() {
+            try {
+                await client.join(APP_ID, channelName, null, null);
+                client.on("user-published", subscribeToUser);
+                client.on("user-unpublished", (user, mediaType) => {
+                    // כאן תוכל להוסיף לוגיקה להסרת הוידאו אם המנחה מפסיק לשתף
+                });
+            } catch (error) {
+                console.error("Failed to join or subscribe", error);
+            }
+        }
+        
         joinAndSubscribe();
     </script>
 </body>
