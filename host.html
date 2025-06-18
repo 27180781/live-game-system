@@ -4,199 +4,162 @@
     <meta charset="UTF-8">
     <title>חדר בקרה למנחה</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #222; color: white; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; overflow: hidden; }
-        
-        #instructions-overlay {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background-color: rgba(0, 0, 0, 0.85);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            z-index: 100;
-        }
-        #instructions-box { max-width: 600px; padding: 30px; }
-        #instructions-box h1 { font-size: 2.5em; color: #00aaff; }
-        #instructions-box p { font-size: 1.2em; line-height: 1.6; }
-        #start-journey-btn { font-size: 1.2em; padding: 12px 30px; margin-top: 20px; background-color: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; }
-
-        #main-view { position: relative; width: 100%; height: calc(100% - 80px); opacity: 0; transition: opacity 0.5s; }
-        #screen-container { width: 100%; height: 100%; background-color: #000; display: flex; align-items: center; justify-content: center; }
-        #screen-container p { font-size: 1.5em; color: #555; }
-        #camera-container { position: absolute; bottom: 10px; right: 10px; width: 20%; min-width: 150px; border: 2px solid #00aaff; border-radius: 8px; overflow: hidden; background-color: #111; display: none; }
-        #controls { position: absolute; bottom: 0; left: 0; width: 100%; height: 80px; background-color: #1a1a1a; display: flex; justify-content: center; align-items: center; gap: 15px; opacity: 0; transition: opacity 0.5s; }
-        #controls button { background-color: #333; color: white; border: 1px solid #555; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; cursor: pointer; transition: background-color 0.2s; }
-        #controls button:hover { background-color: #444; }
-        #controls button.active { background-color: #007acc; border-color: #00aaff; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #222; font-family: sans-serif; overflow: hidden; }
+        #main-container { width: 100%; height: calc(100% - 80px); background: #000; }
+        #final-canvas { width: 100%; height: 100%; }
+        #controls { position: absolute; bottom: 0; left: 0; width: 100%; height: 80px; background-color: #1a1a1a; display: flex; justify-content: center; align-items: center; gap: 15px; }
+        #controls button { background-color: #333; color: white; border: 1px solid #555; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; cursor: pointer; }
+        #controls button.active { background-color: #007acc; }
         #controls button.leave { background-color: #e74c3c; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
-    <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
+    <video id="camera-source" class="hidden" autoplay muted playsinline></video>
+    <video id="screen-source" class="hidden" autoplay muted playsinline></video>
 
-    <div id="instructions-overlay">
-        <div id="instructions-box">
-            <h1>ברוך הבא לחדר הבקרה!</h1>
-            <p>כדי להתחיל את המשחק, השתמש בלחצנים שיופיעו בתחתית המסך כדי לשתף את המצלמה, המיקרופון, וחשוב מכל - את **מסך המשחק** שלך.</p>
-            <p>השחקנים יראו רק מה שתבחר לשתף. בהצלחה!</p>
-            <button id="start-journey-btn">הבנתי, בוא נתחיל</button>
-        </div>
+    <div id="main-container">
+        <canvas id="final-canvas"></canvas>
     </div>
-    
-    <div id="main-view">
-        <div id="screen-container"><p>שיתוף המסך יופיע כאן</p></div>
-        <div id="camera-container"></div>
-    </div>
+
     <div id="controls">
-        <button id="mic-btn" title="הפעל/השתק שמע">🎤</button>
-        <button id="cam-btn" title="הפעל/כבה מצלמה">📷</button>
-        <button id="screen-btn" title="שתף/הפסק שיתוף מסך">🖥️</button>
+        <button id="mic-btn" title="שמע">🎤</button>
+        <button id="cam-btn" title="מצלמה">📷</button>
+        <button id="screen-btn" title="שיתוף מסך">🖥️</button>
         <button id="leave-btn" class="leave" title="סיים שידור">📞</button>
     </div>
 
+    <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
     <script>
-        const APP_ID = "517f71a5aa8a45a8a222341136c439c4"; // !!! החלף במזהה האפליקציה שלך
+        const APP_ID = "517f71a5aa8a45a8a222341136c439c4"; // !!! החלף במזהה האמיתי שלך
 
         const client = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
         client.setClientRole("host");
 
-        const localTracks = {
-            cameraVideoTrack: null,
-            micAudioTrack: null,
-            screenVideoTrack: null,
-            screenAudioTrack: null
-        };
-
         const urlParams = new URLSearchParams(window.location.search);
         const channelName = urlParams.get('channel');
-        
-        document.getElementById('start-journey-btn').onclick = () => {
-            document.getElementById('instructions-overlay').style.display = 'none';
-            document.getElementById('main-view').style.opacity = 1;
-            document.getElementById('controls').style.opacity = 1;
-            joinChannel();
+
+        const localTracks = {
+            micAudioTrack: null,
+            canvasVideoTrack: null,
+            cameraStream: null,
+            screenStream: null
         };
 
-        async function joinChannel() {
-            try {
-                await client.join(APP_ID, channelName, null, null);
-            } catch (error) {
-                console.error("Failed to join channel", error);
-                alert("Could not join channel: " + error);
+        const canvas = document.getElementById('final-canvas');
+        const ctx = canvas.getContext('2d');
+        let animationFrameId;
+
+        // --- לוגיקת איחוד הוידאו (קנבס) ---
+        function drawStreams() {
+            if (!canvas.offsetParent) { // מפסיק לצייר אם הקנבס לא נראה
+                cancelAnimationFrame(animationFrameId);
+                return;
+            }
+            // הגדרת גודל הקנבס בהתאם לגודל החלון
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // צייר את שיתוף המסך על כל הקנבס
+            const screenVideo = document.getElementById('screen-source');
+            if (localTracks.screenStream) {
+                ctx.drawImage(screenVideo, 0, 0, canvas.width, canvas.height);
+            }
+
+            // צייר את המצלמה בפינה
+            const cameraVideo = document.getElementById('camera-source');
+            if (localTracks.cameraStream) {
+                const camWidth = canvas.width * 0.2; // 20% רוחב
+                const camHeight = camWidth * (cameraVideo.videoHeight / cameraVideo.videoWidth);
+                const margin = 20;
+                ctx.drawImage(cameraVideo, canvas.width - camWidth - margin, canvas.height - camHeight - margin, camWidth, camHeight);
+            }
+
+            animationFrameId = requestAnimationFrame(drawStreams);
+        }
+
+        // --- ניהול שידור ---
+        async function startBroadcast() {
+            if (localTracks.canvasVideoTrack) return; // כבר משדרים
+            const canvasStream = canvas.captureStream(30); // 30 FPS
+            localTracks.canvasVideoTrack = AgoraRTC.createCustomVideoTrack({
+                mediaStreamTrack: canvasStream.getVideoTracks()[0]
+            });
+            await client.publish(localTracks.canvasVideoTrack);
+        }
+        
+        async function stopBroadcast() {
+            if (localTracks.canvasVideoTrack) {
+                await client.unpublish(localTracks.canvasVideoTrack);
+                localTracks.canvasVideoTrack.close();
+                localTracks.canvasVideoTrack = null;
             }
         }
 
-        async function leave() {
-            for (const trackName in localTracks) {
-                if (localTracks[trackName]) {
-                    localTracks[trackName].stop();
-                    localTracks[trackName].close();
-                    localTracks[trackName] = null;
-                }
+        // --- כפתורים ---
+        document.getElementById('cam-btn').onclick = async (e) => {
+            const btn = e.currentTarget;
+            if (btn.classList.contains('active')) {
+                localTracks.cameraStream.getTracks().forEach(track => track.stop());
+                localTracks.cameraStream = null;
+                document.getElementById('camera-source').srcObject = null;
+                btn.classList.remove('active');
+            } else {
+                localTracks.cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('camera-source').srcObject = localTracks.cameraStream;
+                btn.classList.add('active');
             }
+        };
+
+        document.getElementById('screen-btn').onclick = async (e) => {
+            const btn = e.currentTarget;
+            if (btn.classList.contains('active')) {
+                localTracks.screenStream.getTracks().forEach(track => track.stop());
+                localTracks.screenStream = null;
+                document.getElementById('screen-source').srcObject = null;
+                await stopBroadcast();
+                btn.classList.remove('active');
+            } else {
+                try {
+                    localTracks.screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                    document.getElementById('screen-source').srcObject = localTracks.screenStream;
+                    await startBroadcast();
+                    btn.classList.add('active');
+                } catch(err) { console.error("Screen share failed", err); }
+            }
+        };
+        
+        document.getElementById('mic-btn').onclick = async (e) => {
+            const btn = e.currentTarget;
+            if (btn.classList.contains('active')) {
+                await client.unpublish(localTracks.micAudioTrack);
+                localTracks.micAudioTrack.close();
+                localTracks.micAudioTrack = null;
+                btn.classList.remove('active');
+            } else {
+                localTracks.micAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+                await client.publish(localTracks.micAudioTrack);
+                btn.classList.add('active');
+            }
+        };
+
+        document.getElementById('leave-btn').onclick = async () => {
+            cancelAnimationFrame(animationFrameId);
             await client.leave();
-            alert("השידור הסתיים.");
+            alert("השידור הסתיים");
             window.location.reload();
+        };
+
+        // --- התחלה ---
+        async function main() {
+            await client.join(APP_ID, channelName, null, null);
+            drawStreams(); // מתחיל את לולאת הציור
         }
-
-        document.getElementById('mic-btn').onclick = async () => {
-            const btn = document.getElementById('mic-btn');
-            if (btn.classList.contains('active')) {
-                if (localTracks.micAudioTrack) {
-                    await client.unpublish(localTracks.micAudioTrack);
-                    localTracks.micAudioTrack.close();
-                    localTracks.micAudioTrack = null;
-                }
-                btn.classList.remove('active');
-            } else {
-                try {
-                    localTracks.micAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-                    await client.publish(localTracks.micAudioTrack);
-                    btn.classList.add('active');
-                } catch (error) { console.error("Mic failed", error); }
-            }
-        };
-
-        document.getElementById('cam-btn').onclick = async () => {
-            const btn = document.getElementById('cam-btn');
-            const camContainer = document.getElementById('camera-container');
-            if (btn.classList.contains('active')) {
-                if (localTracks.cameraVideoTrack) {
-                    await client.unpublish(localTracks.cameraVideoTrack);
-                    localTracks.cameraVideoTrack.close();
-                    localTracks.cameraVideoTrack = null;
-                }
-                camContainer.style.display = 'none';
-                btn.classList.remove('active');
-
-            } else {
-                 try {
-                    localTracks.cameraVideoTrack = await AgoraRTC.createCameraVideoTrack();
-                    camContainer.style.display = 'block';
-                    localTracks.cameraVideoTrack.play('camera-container');
-                    await client.publish(localTracks.cameraVideoTrack);
-                    btn.classList.add('active');
-                 } catch(error){ console.error("Camera failed", error); }
-            }
-        };
-        
-        document.getElementById('screen-btn').onclick = async () => {
-            const btn = document.getElementById('screen-btn');
-            if (btn.classList.contains('active')) {
-                // Stop screen sharing
-                if (localTracks.screenVideoTrack) {
-                    await client.unpublish(localTracks.screenVideoTrack);
-                    localTracks.screenVideoTrack.close();
-                    localTracks.screenVideoTrack = null;
-                }
-                if (localTracks.screenAudioTrack) {
-                    await client.unpublish(localTracks.screenAudioTrack);
-                    localTracks.screenAudioTrack.close();
-                    localTracks.screenAudioTrack = null;
-                }
-                document.getElementById('screen-container').innerHTML = '<p>שיתוף המסך יופיע כאן</p>';
-                btn.classList.remove('active');
-            } else {
-                // Start screen sharing
-                try {
-                    // *** התיקון נמצא כאן ***
-                    const screenTracks = await AgoraRTC.createScreenVideoTrack({ encoderConfig: "1080p_1" }, "auto");
-                    
-                    // מטפל במקרה שהמשתמש משתף גם וידאו וגם אודיו מהמסך
-                    if (Array.isArray(screenTracks)) {
-                        localTracks.screenVideoTrack = screenTracks[0];
-                        if (screenTracks[1]) {
-                            localTracks.screenAudioTrack = screenTracks[1];
-                        }
-                    } else {
-                        localTracks.screenVideoTrack = screenTracks;
-                    }
-                    
-                    document.getElementById('screen-container').innerHTML = '';
-                    localTracks.screenVideoTrack.play('screen-container');
-                    
-                    // משדר את כל ערוצי המסך שנמצאו
-                    const tracksToPublish = [localTracks.screenVideoTrack];
-                    if (localTracks.screenAudioTrack) {
-                        tracksToPublish.push(localTracks.screenAudioTrack);
-                    }
-                    await client.publish(tracksToPublish);
-
-                    btn.classList.add('active');
-                    localTracks.screenVideoTrack.on("track-ended", () => {
-                        document.getElementById('screen-btn').click();
-                    });
-                } catch (error) {
-                    console.error("Screen share failed or cancelled", error);
-                    alert("שגיאה בשיתוף מסך: " + error.message);
-                    btn.classList.remove('active');
-                }
-            }
-        };
-
-        document.getElementById('leave-btn').onclick = leave;
+        main();
     </script>
 </body>
 </html>
