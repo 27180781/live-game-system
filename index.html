@@ -1,0 +1,21 @@
+<script>
+document.getElementById('generateBtn').addEventListener('click', function() {
+    // שם ערוץ קבוע לבדיקה. להפקה אמיתית, יש ליצור אותו דינמית ולבקש טוקן משרת.
+    const channelName = 'livegame_test_channel'; 
+    const gameCode = "1234"; // קוד משחק לדוגמה
+    
+    // יצירת UIDs ייחודיים שיוטמעו בקישורים
+    const baseUid = Math.floor(Math.random() * 100000);
+    const officialHostUid = baseUid + 1;
+    const technicalHostUid = baseUid + 2;
+
+    const baseUrl = new URL('.', window.location.href);
+
+    const officialHostUrl = new URL(`official_host.html?channel=${channelName}&uid=${officialHostUid}`, baseUrl).href;
+    const technicalHostUrl = new URL(`technical_host.html?channel=${channelName}&uid=${technicalHostUid}&host_uid=${officialHostUid}`, baseUrl).href;
+    const playerUrl = new URL(`player.html?channel=${channelName}&gamecode=${gameCode}&official_uid=${officialHostUid}&tech_uid=${technicalHostUid}`, baseUrl).href;
+    
+    // ... שאר קוד הצגת הקישורים וכפתורי ההעתקה ...
+});
+// ... קוד כפתורי ההעתקה ...
+</script>

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <title>מנחה רשמי (מצלמה)</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body, html { overflow: hidden; }
+        #main-container { width: 100%; height: 100%; display: flex; flex-direction: column; }
+        #local-camera-view { width: 100%; height: calc(100% - 80px); background: #111; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        #controls { width: 100%; height: 80px; background-color: #1a1a1a; display: flex; justify-content: center; align-items: center; gap: 15px; }
+        #controls button { background-color: #333; color: white; border: 1px solid #555; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; cursor: pointer; }
+        #controls button.active { background-color: #28a745; }
+        #controls button.leave { background-color: #e74c3c; }
+        #login-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:2000; display:flex; flex-direction: column; justify-content:center; align-items:center; color: white; }
+    </style>
+</head>
+<body>
+    <div id="login-overlay">
+        <h2>מנחה רשמי</h2>
+        <input type="text" id="displayNameInput" placeholder="הזן את שמך לתצוגה בצ'אט" style="padding:10px; text-align:center; border-radius:5px; border:1px solid #ccc;">
+        <button id="joinBtn" style="padding:10px 20px; margin-top:10px; cursor:pointer;">התחל</button>
+    </div>
+
+    <div id="main-container" style="visibility:hidden;">
+        <div id="local-camera-view"></div>
+        <div id="controls">
+            <button id="mic-btn" title="מיקרופון">🎤</button>
+            <button id="cam-btn" title="מצלמה">📷</button>
+            <button id="leave-btn" class="leave" title="סיים שידור">📞</button>
+        </div>
+    </div>
+
+    <div id="chat-container"><div id="chat-header">צ'אט</div><div id="chat-messages"></div><form id="chat-form"><input id="chat-input" placeholder="כתוב הודעה..."></form></div>
+    <button id="chat-toggle-btn">💬</button>
+
+    <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
+    <script src="https://download.agora.io/rtm/release/AgoraRTM_N.js"></script>
+    <script src="config.js"></script>
+    <script src="chat.js"></script>
+    <script>
+        const loginOverlay = document.getElementById('login-overlay');
+        const joinBtn = document.getElementById('joinBtn');
+        const displayNameInput = document.getElementById('displayNameInput');
+
+        joinBtn.onclick = () => {
+            const displayName = displayNameInput.value.trim();
+            if (displayName) {
+                loginOverlay.style.display = 'none';
+                document.getElementById('main-container').style.visibility = 'visible';
+                main(displayName);
+            } else {
+                alert("יש להזין שם.");
+            }
+        };
+
+        async function main(displayName) {
+            const rtcClient = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
+            rtcClient.setClientRole("host");
+            const rtmClient = AgoraRTM.createInstance(AGORA_APP_ID);
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const channelName = urlParams.get('channel');
+            const uid = parseInt(urlParams.get('uid'));
+
+            let localTracks = {
+                audioTrack: null,
+                videoTrack: null
+            };
+
+            await rtcClient.join(AGORA_APP_ID, channelName, AGORA_TOKEN, uid);
+            await initChat(rtmClient, channelName, uid.toString(), displayName);
+
+            // יצירה ופרסום ראשוני של המדיה
+            localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+            localTracks.videoTrack = await AgoraRTC.createCameraVideoTrack();
+            localTracks.videoTrack.play("local-camera-view");
+            await rtcClient.publish(Object.values(localTracks));
+            
+            document.getElementById('mic-btn').classList.add('active');
+            document.getElementById('cam-btn').classList.add('active');
+
+            // --- Buttons Logic ---
+            document.getElementById('mic-btn').onclick = async (e) => {
+                const btn = e.currentTarget;
+                if (localTracks.audioTrack.muted) {
+                    await localTracks.audioTrack.setMuted(false);
+                    btn.classList.add('active');
+                } else {
+                    await localTracks.audioTrack.setMuted(true);
+                    btn.classList.remove('active');
+                }
+            };
+
+            document.getElementById('cam-btn').onclick = async (e) => {
+                const btn = e.currentTarget;
+                if (localTracks.videoTrack.muted) {
+                    await localTracks.videoTrack.setMuted(false);
+                    btn.classList.add('active');
+                } else {
+                    await localTracks.videoTrack.setMuted(true);
+                    btn.classList.remove('active');
+                }
+            };
+
+            document.getElementById('leave-btn').onclick = async () => {
+                localTracks.audioTrack.close();
+                localTracks.videoTrack.close();
+                await rtcClient.leave();
+                await rtmClient.logout();
+                window.location.href = 'index.html';
+            };
+        }
+    </script>
+</body>
+</html>
