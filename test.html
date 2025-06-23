@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Agora SDK Load Test</title>
+    
+    <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
+    <script src="./AgoraRTM_N.js"></script>
+    
+</head>
+<body>
+    <h1>דף בדיקה לטעינת סקריפטים</h1>
+    <p>פתח את ה-Console (עם F12) כדי לראות את התוצאות.</p>
+
+    <script>
+        console.log("Test script is running...");
+        try {
+            // בודקים אם שני האובייקטים הראשיים קיימים ומוגדרים
+            if (typeof AgoraRTC !== 'undefined' && typeof AgoraRTM !== 'undefined') {
+                console.log("SUCCESS: Both AgoraRTC and AgoraRTM objects are defined.");
+                console.log("AgoraRTC object:", AgoraRTC);
+                console.log("AgoraRTM object:", AgoraRTM);
+                alert("בדיקה עברה בהצלחה! שני הסקריפטים נטענו כראוי.");
+            } else {
+                if (typeof AgoraRTC === 'undefined') console.error("ERROR: AgoraRTC is not defined.");
+                if (typeof AgoraRTM === 'undefined') console.error("ERROR: AgoraRTM is not defined.");
+                alert("בדיקה נכשלה. אחד הסקריפטים לא נטען. בדוק את ה-Console.");
+            }
+        } catch (e) {
+            console.error("A critical error occurred:", e);
+            alert("שגיאה קריטית אירעה: " + e.message);
+        }
+    </script>
+</body>
+</html>
