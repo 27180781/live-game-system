@@ -7,10 +7,12 @@
     
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/agora-rtm-sdk@1.5.1/js/AgoraRTM_N.js"></script>
+
     <style>
+        #main-container { width: 100%; height: 100%; display: flex; flex-direction: column; visibility: hidden; }
         #local-camera-view { width: 100%; height: calc(100% - 80px); background-color: #000; }
         #local-camera-view video { width: 100%; height: 100%; object-fit: cover; }
-        #controls { position: absolute; bottom: 0; left: 0; width: 100%; height: 80px; background-color: #1a1a1a; display: flex; justify-content: center; align-items: center; gap: 15px; }
+        #controls { width: 100%; height: 80px; background-color: #1a1a1a; display: flex; justify-content: center; align-items: center; gap: 15px; flex-shrink: 0; }
         #controls button { background-color: #333; color: white; border: 1px solid #555; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; cursor: pointer; }
         #controls button.active { background-color: #28a745; }
         #controls button.leave { background-color: #e74c3c; }
@@ -24,7 +26,7 @@
         <button id="joinBtn" style="padding:10px 20px; margin-top:10px; cursor:pointer;">התחל שידור</button>
     </div>
 
-    <div id="main-container" style="visibility:hidden;">
+    <div id="main-container">
         <div id="local-camera-view"></div>
         <div id="controls">
             <button id="mic-btn" title="שמע">🎤</button>
@@ -39,79 +41,84 @@
     <script src="config.js"></script>
     <script src="chat.js"></script>
     <script>
-        const loginOverlay = document.getElementById('login-overlay');
-        const joinBtn = document.getElementById('joinBtn');
-        const displayNameInput = document.getElementById('displayNameInput');
+        // עטיפת כל הקוד ב-window.onload כדי למנוע בעיות תזמון
+        window.onload = function() {
+            const loginOverlay = document.getElementById('login-overlay');
+            const joinBtn = document.getElementById('joinBtn');
+            const displayNameInput = document.getElementById('displayNameInput');
 
-        joinBtn.onclick = () => {
-            const displayName = displayNameInput.value.trim();
-            if (displayName) {
-                loginOverlay.style.display = 'none';
-                document.getElementById('main-container').style.visibility = 'visible';
-                main(displayName);
-            } else {
-                alert("יש להזין שם.");
-            }
-        };
-
-        async function main(displayName) {
-            const rtcClient = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
-            rtcClient.setClientRole("host");
-            const rtmClient = AgoraRTM.createInstance(AGORA_APP_ID);
-
-            const urlParams = new URLSearchParams(window.location.search);
-            const channelName = urlParams.get('channel');
-            const uid = parseInt(urlParams.get('uid'));
-            const token = urlParams.get('token');
-
-            let localTracks = { audioTrack: null, videoTrack: null };
-            
-            try {
-                await rtcClient.join(AGORA_APP_ID, channelName, token, uid);
-                await initChat(rtmClient, channelName, uid.toString(), displayName);
-            } catch (error) {
-                console.error("RTC Join or RTM init failed", error);
-                alert("ההתחברות לערוץ נכשלה. בדוק את ה-Console לפרטים.");
-                return;
-            }
-            
-            document.getElementById('mic-btn').onclick = async (e) => {
-                 if (!localTracks.audioTrack) {
-                    try {
-                        localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-                        await rtcClient.publish(localTracks.audioTrack);
-                        e.currentTarget.classList.add('active');
-                    } catch(err) { console.error("Mic Error", err); }
+            joinBtn.onclick = () => {
+                const displayName = displayNameInput.value.trim();
+                if (displayName) {
+                    loginOverlay.style.display = 'none';
+                    document.getElementById('main-container').style.visibility = 'visible';
+                    main(displayName);
                 } else {
+                    alert("יש להזין שם.");
+                }
+            };
+
+            async function main(displayName) {
+                const rtcClient = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
+                rtcClient.setClientRole("host");
+                const rtmClient = AgoraRTM.createInstance(AGORA_APP_ID);
+
+                const urlParams = new URLSearchParams(window.location.search);
+                const channelName = urlParams.get('channel');
+                const uid = parseInt(urlParams.get('uid'));
+                const token = urlParams.get('token');
+
+                let localTracks = { audioTrack: null, videoTrack: null };
+                
+                try {
+                    await rtcClient.join(AGORA_APP_ID, channelName, token, uid);
+                    await initChat(rtmClient, channelName, uid.toString(), displayName);
+                } catch (error) {
+                    console.error("RTC Join or RTM init failed", error);
+                    alert("ההתחברות לערוץ נכשלה. בדוק את ה-Console לפרטים.");
+                    return;
+                }
+                
+                // --- Buttons Logic with setMuted for better UX ---
+                const micBtn = document.getElementById('mic-btn');
+                const camBtn = document.getElementById('cam-btn');
+
+                // Auto-start mic and cam on join
+                try {
+                    localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+                    localTracks.videoTrack = await AgoraRTC.createCameraVideoTrack();
+                    localTracks.videoTrack.play("local-camera-view");
+                    await rtcClient.publish(Object.values(localTracks));
+                    micBtn.classList.add('active');
+                    camBtn.classList.add('active');
+                } catch(err) {
+                    console.error("Failed to create initial tracks", err);
+                    alert("לא ניתן היה להפעיל את המצלמה או המיקרופון.");
+                }
+
+                micBtn.onclick = async () => {
+                    if (!localTracks.audioTrack) return;
                     await localTracks.audioTrack.setMuted(!localTracks.audioTrack.muted);
-                    e.currentTarget.classList.toggle('active', !localTracks.audioTrack.muted);
-                }
-            };
-            
-            document.getElementById('cam-btn').onclick = async (e) => {
-                if (!localTracks.videoTrack) {
-                    try {
-                        localTracks.videoTrack = await AgoraRTC.createCameraVideoTrack();
-                        localTracks.videoTrack.play("local-camera-view");
-                        await rtcClient.publish(localTracks.videoTrack);
-                        e.currentTarget.classList.add('active');
-                    } catch(err) { console.error("Camera Error", err); }
-                } else {
+                    micBtn.classList.toggle('active', !localTracks.audioTrack.muted);
+                };
+                
+                camBtn.onclick = async () => {
+                    if (!localTracks.videoTrack) return;
                     await localTracks.videoTrack.setMuted(!localTracks.videoTrack.muted);
-                    e.currentTarget.classList.toggle('active', !localTracks.videoTrack.muted);
-                }
-            };
-            
-            document.getElementById('leave-btn').onclick = async () => {
-                for (let trackName in localTracks) {
-                    if(localTracks[trackName]) {
-                        localTracks[trackName].close();
+                    camBtn.classList.toggle('active', !localTracks.videoTrack.muted);
+                };
+                
+                document.getElementById('leave-btn').onclick = async () => {
+                    for (let trackName in localTracks) {
+                        if(localTracks[trackName]) {
+                            localTracks[trackName].close();
+                        }
                     }
-                }
-                await rtcClient.leave();
-                await rtmClient.logout();
-                window.location.href = 'index.html';
-            };
+                    await rtcClient.leave();
+                    await rtmClient.logout();
+                    window.location.href = 'index.html';
+                };
+            }
         }
     </script>
 </body>
