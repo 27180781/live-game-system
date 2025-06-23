@@ -5,15 +5,53 @@
     <title>חדר בקרה: מנחה רשמי</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/agora-rtm-sdk@1.5.1/js/AgoraRTM_N.js"></script>
-    </head>
+    <script src="https://cdn.jsdelivr.net/npm/agora-rtm-sdk@1.5.1/js/AgoraRTM_N.js"></script>
+    <style>
+        #local-camera-view { width: 100%; height: calc(100% - 80px); background-color: #000; }
+        #local-camera-view video { width: 100%; height: 100%; object-fit: cover; }
+        #controls { position: absolute; bottom: 0; left: 0; width: 100%; height: 80px; background-color: #1a1a1a; display: flex; justify-content: center; align-items: center; gap: 15px; }
+        #controls button { background-color: #333; color: white; border: 1px solid #555; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; cursor: pointer; }
+        #controls button.active { background-color: #28a745; }
+        #controls button.leave { background-color: #e74c3c; }
+    </style>
+</head>
 <body>
+    <div id="login-overlay">
+        <h2>מנחה רשמי</h2>
+        <input type="text" id="displayNameInput" placeholder="הזן את שמך לתצוגה בצ'אט">
+        <button id="joinBtn">התחל שידור</button>
+    </div>
+
+    <div id="main-container" style="visibility:hidden;">
+        <div id="local-camera-view"></div>
+        <div id="controls">
+            <button id="mic-btn" title="שמע">🎤</button>
+            <button id="cam-btn" title="מצלמה">📷</button>
+            <button id="leave-btn" class="leave" title="סיים שידור">📞</button>
+        </div>
+    </div>
+
+    <div id="chat-container"><div id="chat-header">צ'אט</div><div id="chat-messages"></div><form id="chat-form"><input id="chat-input" placeholder="כתוב הודעה..."></form></div>
+    <button id="chat-toggle-btn">💬</button>
+
+    <script src="config.js"></script>
     <script src="chat.js"></script>
     <script>
-        const AGORA_APP_ID = "517f71a5aa8a45a8a222341136c439c4"; // שים כאן את ה-App ID שלך
+        const loginOverlay = document.getElementById('login-overlay');
+        const joinBtn = document.getElementById('joinBtn');
+        const displayNameInput = document.getElementById('displayNameInput');
 
-        // --- לוגיקת מסך הכניסה נשארת זהה ---
-        
+        joinBtn.onclick = () => {
+            const displayName = displayNameInput.value.trim();
+            if (displayName) {
+                loginOverlay.style.display = 'none';
+                document.getElementById('main-container').style.visibility = 'visible';
+                main(displayName);
+            } else {
+                alert("יש להזין שם.");
+            }
+        };
+
         async function main(displayName) {
             const rtcClient = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
             rtcClient.setClientRole("host");
@@ -21,22 +59,58 @@
 
             const urlParams = new URLSearchParams(window.location.search);
             const channelName = urlParams.get('channel');
-            const token = urlParams.get('token'); // קריאת הטוקן מהקישור
             const uid = parseInt(urlParams.get('uid'));
+            const token = urlParams.get('token');
 
-            let localTracks = { mic: null, cam: null };
+            let localTracks = { audioTrack: null, videoTrack: null };
             
             try {
-                // שימוש בטוקן מהקישור בעת ההצטרפות
                 await rtcClient.join(AGORA_APP_ID, channelName, token, uid);
                 await initChat(rtmClient, channelName, uid.toString(), displayName);
             } catch (error) {
-                console.error("Join failed", error);
-                alert("ההתחברות לערוץ נכשלה: " + error);
+                console.error("RTC Join or RTM init failed", error);
+                alert("ההתחברות לערוץ נכשלה. בדוק את ה-Console לפרטים.");
                 return;
             }
             
-            // --- כל לוגיקת הכפתורים נשארת זהה ---
+            // --- Buttons Logic ---
+            document.getElementById('mic-btn').onclick = async (e) => {
+                 if (!localTracks.audioTrack) { // If track doesn't exist, create it
+                    try {
+                        localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+                        await rtcClient.publish(localTracks.audioTrack);
+                        e.currentTarget.classList.add('active');
+                    } catch(err) { console.error("Mic Error", err); }
+                } else { // If track exists, toggle mute
+                    await localTracks.audioTrack.setMuted(!localTracks.audioTrack.muted);
+                    e.currentTarget.classList.toggle('active', !localTracks.audioTrack.muted);
+                }
+            };
+            
+            document.getElementById('cam-btn').onclick = async (e) => {
+                if (!localTracks.videoTrack) { // If track doesn't exist, create it
+                    try {
+                        localTracks.videoTrack = await AgoraRTC.createCameraVideoTrack();
+                        localTracks.videoTrack.play("local-camera-view");
+                        await rtcClient.publish(localTracks.videoTrack);
+                        e.currentTarget.classList.add('active');
+                    } catch(err) { console.error("Camera Error", err); }
+                } else { // If track exists, toggle mute
+                    await localTracks.videoTrack.setMuted(!localTracks.videoTrack.muted);
+                    e.currentTarget.classList.toggle('active', !localTracks.videoTrack.muted);
+                }
+            };
+            
+            document.getElementById('leave-btn').onclick = async () => {
+                for (let trackName in localTracks) {
+                    if(localTracks[trackName]) {
+                        localTracks[trackName].close();
+                    }
+                }
+                await rtcClient.leave();
+                await rtmClient.logout();
+                window.location.href = 'index.html';
+            };
         }
     </script>
 </body>
