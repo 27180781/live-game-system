@@ -2,127 +2,95 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>מחולל קישורים למשחק</title>
+    <title>מחולל קישורי משחק</title>
+    <link rel="stylesheet" href="styles.css">
     <style>
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            background-color: #222;
-            color: white;
-            padding: 25px; 
-            text-align: center; 
-        }
-        .container { 
-            max-width: 600px; 
-            margin: 40px auto; 
-            padding: 25px; 
-            border: 1px solid #3a3a3d; 
-            border-radius: 12px; 
-            background-color: #27272a;
-        }
-        .link-box { 
-            border: 1px solid #007bff; 
-            padding: 15px; 
-            margin-top: 15px; 
-            border-radius: 8px; 
-            background-color: #18181b; 
-            text-align: right; 
-        }
-        .link-row { 
-            display: flex; 
-            align-items: center; 
-            justify-content: space-between; 
-            gap: 10px; 
-        }
-        a { 
-            color: #60a5fa; 
-            word-wrap: break-word; 
-            text-align: left; 
-            flex-grow: 1; 
-        }
-        button { 
-            cursor: pointer; 
-            padding: 12px 24px;
-            font-size: 1.1em;
-            border-radius: 8px;
-            border: none;
-            background-color: #007bff;
-            color: white;
-            transition: background-color 0.2s;
-        }
+        body { padding: 25px; text-align: center; }
+        .container { max-width: 600px; margin: 40px auto; padding: 25px; border: 1px solid #3a3a3d; border-radius: 12px; background-color: #27272a; }
+        .link-box { border: 1px solid #007bff; padding: 15px; margin-top: 15px; border-radius: 8px; background-color: #18181b; text-align: right; }
+        .link-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        a { color: #60a5fa; word-wrap: break-word; text-align: left; flex-grow: 1; }
+        button { cursor: pointer; padding: 12px 24px; font-size: 1.1em; border-radius: 8px; border: none; background-color: #007bff; color: white; transition: background-color 0.2s; }
         button:hover { background-color: #0056b3; }
-        .copy-btn {
-             padding: 8px 12px; 
-             font-size: 0.9em; 
-             background-color: #6c757d;
-        }
-        input[type="text"] {
-            padding: 10px;
-            text-align: center;
-            border-radius: 5px;
-            border: 1px solid #ccc;
-            margin: 10px;
-        }
+        .copy-btn { padding: 8px 12px; font-size: 0.9em; background-color: #6c757d; }
+        input[type="text"] { padding: 10px; text-align: center; border-radius: 5px; border: 1px solid #ccc; margin: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>יצירת משחק חדש</h1>
-        <p>מערכת זו יוצרת קישורים עבור משחק עם מנחה רשמי ומנחה טכני.</p>
-        <p>שם הערוץ לבדיקה: <strong>livegame_test_channel</strong></p>
-        <p>קוד משחק לדוגמה: <input type="text" id="gameCodeInput" value="1234"></p>
-        <button id="generateBtn">צור קישורי משחק</button>
-
+        <h1>מחולל קישורי משחק לייב</h1>
+        <p>הכנס את קוד המשחק:</p>
+        <input type="text" id="gameId" placeholder="למשל 1234">
+        <button onclick="generateLinks()">צור קישורים</button>
         <div id="links-container" style="display:none; margin-top: 20px;">
-            <h2>הקישורים מוכנים!</h2>
-            <div class="link-box">
-                <h3>קישור 1: למנחה הרשמי (מצלמה ושמע)</h3>
-                <div class="link-row">
-                    <a id="officialHostLink" href="#" target="_blank" rel="noopener noreferrer"></a>
-                    <button class="copy-btn" data-link-id="officialHostLink">העתק</button>
-                </div>
-            </div>
-            <div class="link-box">
-                <h3>קישור 2: למנחה הטכני (שיתוף מסך)</h3>
-                <div class="link-row">
-                    <a id="technicalHostLink" href="#" target="_blank" rel="noopener noreferrer"></a>
-                    <button class="copy-btn" data-link-id="technicalHostLink">העתק</button>
-                </div>
-            </div>
-            <div class="link-box">
-                <h3>קישור 3: לשחקנים</h3>
-                <div class="link-row">
-                    <a id="playerLink" href="#" target="_blank" rel="noopener noreferrer"></a>
-                    <button class="copy-btn" data-link-id="playerLink">העתק</button>
-                </div>
-            </div>
-        </div>
+             </div>
     </div>
-
     <script>
-        document.getElementById('generateBtn').addEventListener('click', function() {
-            const channelName = 'livegame_test_channel'; 
-            const gameCode = document.getElementById('gameCodeInput').value;
+        const TOKEN_URL = "https://agora-token-generator2.caprover.clicker.co.il/generate_token";
+
+        async function generateLinks() {
+            const gameId = document.getElementById('gameId').value.trim();
+            if (!gameId) return alert("אנא הזן קוד משחק");
+
+            const channelName = `game_${gameId}`;
             
+            // יצירת UIDs ייחודיים לכל תפקיד
             const baseUid = Math.floor(Math.random() * 100000);
             const officialHostUid = baseUid + 1;
             const technicalHostUid = baseUid + 2;
 
-            const baseUrl = new URL('.', window.location.href);
+            try {
+                // בקשת טוקן "כללי" שמתאים לכל משתמש בערוץ
+                const response = await fetch(TOKEN_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ channel_name: channelName, uid: 0 }) // uid: 0 for wildcard token
+                });
 
-            const officialHostUrl = new URL(`official_host.html?channel=${channelName}&uid=${officialHostUid}`, baseUrl).href;
-            const technicalHostUrl = new URL(`technical_host.html?channel=${channelName}&uid=${technicalHostUid}&host_uid=${officialHostUid}`, baseUrl).href;
-            const playerUrl = new URL(`player.html?channel=${channelName}&gamecode=${gameCode}&official_uid=${officialHostUid}&tech_uid=${technicalHostUid}`, baseUrl).href;
-            
-            document.getElementById('officialHostLink').href = officialHostUrl;
-            document.getElementById('officialHostLink').textContent = officialHostUrl;
-            document.getElementById('technicalHostLink').href = technicalHostUrl;
-            document.getElementById('technicalHostLink').textContent = technicalHostUrl;
-            document.getElementById('playerLink').href = playerUrl;
-            document.getElementById('playerLink').textContent = playerUrl;
-            
-            document.getElementById('links-container').style.display = 'block';
-        });
+                if (!response.ok) throw new Error("השרת החזיר שגיאה ביצירת הטוקן");
+
+                const data = await response.json();
+                const token = data.rtcToken || data.token;
+                if (!token) throw new Error("לא התקבל טוקן מהשרת");
+                
+                const encodedToken = encodeURIComponent(token);
+                const baseUrl = new URL('.', window.location.href);
+
+                // בניית הקישורים עם כל הפרמטרים הדרושים
+                const officialHostUrl = new URL(`official_host.html?channel=${channelName}&uid=${officialHostUid}&token=${encodedToken}`, baseUrl).href;
+                const technicalHostUrl = new URL(`technical_host.html?channel=${channelName}&uid=${technicalHostUid}&host_uid=${officialHostUid}&token=${encodedToken}`, baseUrl).href;
+                const playerUrl = new URL(`player.html?channel=${channelName}&gamecode=${gameId}&official_uid=${officialHostUid}&tech_uid=${technicalHostUid}&token=${encodedToken}`, baseUrl).href;
+
+                document.getElementById('links-container').innerHTML = `
+                    <h2>הקישורים מוכנים!</h2>
+                    <div class="link-box">
+                        <h3>קישור 1: למנחה הרשמי (מצלמה ושמע)</h3>
+                        <div class="link-row">
+                            <a id="officialHostLink" href="${officialHostUrl}" target="_blank" rel="noopener noreferrer">${officialHostUrl}</a>
+                            <button class="copy-btn" data-link-id="officialHostLink">העתק</button>
+                        </div>
+                    </div>
+                    <div class="link-box">
+                        <h3>קישור 2: למנחה הטכני (שיתוף מסך)</h3>
+                        <div class="link-row">
+                            <a id="technicalHostLink" href="${technicalHostUrl}" target="_blank" rel="noopener noreferrer">${technicalHostUrl}</a>
+                            <button class="copy-btn" data-link-id="technicalHostLink">העתק</button>
+                        </div>
+                    </div>
+                    <div class="link-box">
+                        <h3>קישור 3: לשחקנים</h3>
+                        <div class="link-row">
+                            <a id="playerLink" href="${playerUrl}" target="_blank" rel="noopener noreferrer">${playerUrl}</a>
+                            <button class="copy-btn" data-link-id="playerLink">העתק</button>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('links-container').style.display = 'block';
+
+            } catch (err) {
+                alert("אירעה שגיאה ביצירת הקישורים: " + err.message);
+            }
+        }
 
         document.body.addEventListener('click', function(e) {
             if (e.target.classList.contains('copy-btn')) {
